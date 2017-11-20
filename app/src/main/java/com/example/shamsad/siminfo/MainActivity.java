@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.net.Uri;
 import android.provider.Telephony;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -20,6 +21,8 @@ import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
     private Button bsim;
+    private Button bCall1;
+    private Button bCall2;
     private TextView tsim;
     public Context context;
     public TelephonyManager telephonyManager;
@@ -34,7 +37,7 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onReceive(Context context, Intent intent) {
             String message = intent.getStringExtra("message");
-            Log.i("receiver", "Got message: " + message);
+            Log.d("Sajid", "USSD msg: "+message);
             showText(message);
         }
     };
@@ -45,11 +48,14 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         context = this;
         bsim = findViewById(R.id.bSim);
+        bCall1 = findViewById(R.id.bCall1);
+        bCall2 = findViewById(R.id.bCall2);
         tsim = findViewById(R.id.tsim);
 
         IntentFilter mFilter = new IntentFilter("REFRESH");
         context.registerReceiver(mMessageReceiver, mFilter);
         isRegistered = true;
+        Log.d("Sajid", "Registering receiver...");
 
 //        telephonyManager = (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
 
@@ -69,12 +75,58 @@ public class MainActivity extends AppCompatActivity {
                 String siminfo2 = getSimInfo(context, methodName, slotId2);
                 Log.d("Sajid","Sim 2: "+siminfo2);
 
+                tsim.append(siminfo1+"\n"+siminfo2);
+
 //                String carrierName = telephonyManager.getNetworkOperatorName();
 //                Log.d("Sajid","carrier: "+ carrierName);
             }
         });
 
+        bCall1.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                runUSSD(0);
+            }
+        });
 
+        bCall2.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                runUSSD(1);
+            }
+        });
+
+
+
+    }
+
+    public void runUSSD(int slotId) {
+        String methodName = "getSimOperatorName";
+        String siminfo = getSimInfo(context, methodName, slotId).toLowerCase();
+        if(siminfo.contains("grameenphone")){
+            String encodedHash = Uri.encode("#");
+            String ussd = "*566" + encodedHash;
+            startActivityForResult(new Intent("android.intent.action.CALL",
+                    Uri.parse("tel:" + ussd)), 1);
+        }
+        else if(siminfo.contains("banglalink")){
+            String encodedHash = Uri.encode("#");
+            String ussd = "*124" + encodedHash;
+            startActivityForResult(new Intent("android.intent.action.CALL",
+                    Uri.parse("tel:" + ussd)), 1);
+        }
+        else if(siminfo.contains("teletalk")){
+            String encodedHash = Uri.encode("#");
+            String ussd = "*152" + encodedHash;
+            startActivityForResult(new Intent("android.intent.action.CALL",
+                    Uri.parse("tel:" + ussd)), 1);
+        }
+        else if(siminfo.contains("robi")){
+            String encodedHash = Uri.encode("#");
+            String ussd = "*222" + encodedHash;
+            startActivityForResult(new Intent("android.intent.action.CALL",
+                    Uri.parse("tel:" + ussd)), 1);
+        }
     }
 
     private static String getSimInfo(Context context, String methodName, int slotId) {
@@ -116,16 +168,15 @@ public class MainActivity extends AppCompatActivity {
 
             subscriptionInfos = SubscriptionManager.from(context).getActiveSubscriptionInfoList();
             SubscriptionInfo lsuSubscriptionInfo = null;
-            for(int i=0; i<subscriptionInfos.size();i++)
-            {
-                lsuSubscriptionInfo = subscriptionInfos.get(i);
-                Log.d("Sajid " ,"getNumber "+ lsuSubscriptionInfo.getNumber());
-                Log.d("Sajid", "network name : "+ lsuSubscriptionInfo.
+            if(slotId<subscriptionInfos.size()) {
+                lsuSubscriptionInfo = subscriptionInfos.get(slotId);
+                Log.d("Sajid ", "getNumber " + lsuSubscriptionInfo.getNumber());
+                Log.d("Sajid", "network name : " + lsuSubscriptionInfo.
                         getCarrierName());
-                Log.d("Sajid ", "getCountryIso "+ lsuSubscriptionInfo.getCountryIso());
+                Log.d("Sajid ", "getCountryIso " + lsuSubscriptionInfo.getCountryIso());
+                return lsuSubscriptionInfo.getCarrierName().toString();
             }
-
-            return lsuSubscriptionInfo.getCarrierName().toString();
+            return null;
         }
     }
 
@@ -179,8 +230,26 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
-    protected void onPause() {
-        super.onPause();
+    protected void onResume() {
+        super.onResume();
+        Log.d("Sajid", "Registering receiver...");
+        try
+        {
+            if (!isRegistered) {
+                IntentFilter mFilter = new IntentFilter("REFRESH");
+                context.registerReceiver(mMessageReceiver, mFilter);
+                isRegistered = true;
+            }
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        Log.d("Sajid", "Unregistering receiver...");
         try
         {
             if (isRegistered) {
@@ -196,6 +265,6 @@ public class MainActivity extends AppCompatActivity {
 
 
     private void showText(String message) {
-        tsim.setText(message);
+        tsim.append(message);
     }
 }

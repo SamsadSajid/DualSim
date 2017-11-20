@@ -17,7 +17,7 @@ import static android.content.ContentValues.TAG;
 
 public class Myservice extends AccessibilityService {
 
-    static final String TAG = "RecorderService";
+    static final String TAG = "Sajid";
 
     private String getEventType(AccessibilityEvent event) {
         switch (event.getEventType()) {
@@ -44,6 +44,7 @@ public class Myservice extends AccessibilityService {
         for (CharSequence s : event.getText()) {
             sb.append(s);
         }
+        Log.d("Sajid", sb.toString());
         return sb.toString();
     }
 
