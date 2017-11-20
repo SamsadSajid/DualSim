@@ -26,9 +26,21 @@
         android:layout_height="wrap_content"
         android:text="Sim 2" />
 
+    <Button
+        android:id="@+id/bSms1"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Sms 1" />
+
+    <Button
+        android:id="@+id/bSms2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Sms 2" />
+
     <TextView
         android:id="@+id/tsim"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="TextView" />
+        />
 </LinearLayout>

@@ -1,14 +1,19 @@
 package com.example.shamsad.siminfo;
 
+import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.net.Uri;
-import android.provider.Telephony;
+import android.os.Build;
+import android.os.IBinder;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.telephony.SmsManager;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
@@ -17,13 +22,19 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.List;
+
+import static android.Manifest.permission.SEND_SMS;
 
 public class MainActivity extends AppCompatActivity {
     private Button bsim;
     private Button bCall1;
     private Button bCall2;
+    private Button bSms1;
+    private Button bSms2;
     private TextView tsim;
     public Context context;
     public TelephonyManager telephonyManager;
@@ -33,6 +44,8 @@ public class MainActivity extends AppCompatActivity {
     private boolean isSIM2Ready;
     public static List<SubscriptionInfo>subscriptionInfos;
     public Boolean isRegistered;
+
+    private static final int REQUEST_SMS = 0;
 
     public static Boolean flag = null;
 
@@ -51,15 +64,14 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         context = this;
 
-        SharedPreferences sharedPref= getSharedPreferences("mypref", 0);
-        SharedPreferences.Editor editor= sharedPref.edit();
-        editor.putString("flag", "true");
-        editor.commit();
+        changeFlag("true");
 
         bsim = findViewById(R.id.bSim);
         bCall1 = findViewById(R.id.bCall1);
         bCall2 = findViewById(R.id.bCall2);
         tsim = findViewById(R.id.tsim);
+        bSms1 = findViewById(R.id.bSms1);
+        bSms2 = findViewById(R.id.bSms2);
 
         IntentFilter mFilter = new IntentFilter("REFRESH");
         context.registerReceiver(mMessageReceiver, mFilter);
@@ -107,8 +119,243 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        bSms1.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
 
+                checkPermSms(0);
+            }
+        });
 
+        bSms2.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                checkPermSms(1);
+            }
+        });
+
+    }
+
+    private void changeFlag(String flag) {
+        SharedPreferences sharedPref= getSharedPreferences("mypref", 0);
+        SharedPreferences.Editor editor= sharedPref.edit();
+        editor.putString("flag", flag);
+        editor.commit();
+    }
+
+    public void checkPermSms(int slotId) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            int hasSMSPermission = checkSelfPermission(SEND_SMS);
+            if (hasSMSPermission != PackageManager.PERMISSION_GRANTED) {
+                if (!shouldShowRequestPermissionRationale(SEND_SMS)) {
+                    showMessageOKCancel("You need to allow access to Send SMS",
+                            new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(DialogInterface dialog, int which) {
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                                        requestPermissions(new String[] {SEND_SMS},
+                                                REQUEST_SMS);
+                                    }
+                                }
+                            });
+                    return;
+                }
+                requestPermissions(new String[] {SEND_SMS},
+                        REQUEST_SMS);
+                return;
+            }
+            sendMySMS(slotId);
+        }
+        else{
+            sendMySMS(slotId);
+        }
+    }
+
+    public static boolean sendMultipartTextSMS(String name,Context ctx, int simID, String toNum,
+                                               String centerNum, ArrayList<String> smsTextlist,
+                                               ArrayList<PendingIntent> sentIntentList,
+                                               ArrayList<PendingIntent> deliveryIntentList) {
+        try {
+            Method method = Class.forName("android.os.ServiceManager").getDeclaredMethod("getService", String.class);
+            method.setAccessible(true);
+            Object param = method.invoke(null, name);
+
+            method = Class.forName("com.android.internal.telephony.ISms$Stub").
+                    getDeclaredMethod("asInterface", IBinder.class);
+            method.setAccessible(true);
+            Object stubObj = method.invoke(null, param);
+            if (Build.VERSION.SDK_INT < 18) {
+                method = stubObj.getClass().getMethod("sendMultipartText",
+                        String.class, String.class, List.class, List.class, List.class);
+                method.invoke(stubObj, toNum, centerNum, smsTextlist, sentIntentList,
+                        deliveryIntentList);
+            } else {
+                method = stubObj.getClass().getMethod("sendMultipartText", String.class,
+                        String.class, String.class, List.class, List.class, List.class);
+                method.invoke(stubObj, ctx.getPackageName(), toNum, centerNum, smsTextlist,
+                        sentIntentList, deliveryIntentList);
+            }
+            return true;
+        } catch (ClassNotFoundException e) {
+            Log.d("Sajid", "ClassNotFoundException: " + e.getMessage());
+        } catch (NoSuchMethodException e) {
+            Log.d("Sajid", "NoSuchMethodException: " + e.getMessage());
+        } catch (InvocationTargetException e) {
+            Log.d("Sajid", "InvocationTargetException: " + e.getMessage());
+        } catch (IllegalAccessException e) {
+            Log.d("Sajid", "IllegalAccessException: " + e.getMessage());
+        } catch (Exception e) {
+            Log.d("Sajid", "Exception:sendMultipartTextSMS " + e.getMessage());
+        }
+        return false;
+    }
+
+    public static boolean sendSMS(String name, Context ctx, int simID, String toNum, String centerNum, String smsText, PendingIntent sentIntent, PendingIntent deliveryIntent) {
+
+        try{
+            Method method = Class.forName("android.os.ServiceManager").getDeclaredMethod("getService", String.class);
+            method.setAccessible(true);
+            Object param = method.invoke(null, name);
+
+            method = Class.forName("com.android.internal.telephony.ISms$Stub").getDeclaredMethod("asInterface", IBinder.class);
+            method.setAccessible(true);
+            Object stubObj = method.invoke(null, param);
+            if (Build.VERSION.SDK_INT < 18) {
+                method = stubObj.getClass().getMethod("sendText", String.class, String.class, String.class, PendingIntent.class, PendingIntent.class);
+                method.invoke(stubObj, toNum, centerNum, smsText, sentIntent, deliveryIntent);
+            } else {
+                method = stubObj.getClass().getMethod("sendText", String.class, String.class, String.class, String.class, PendingIntent.class, PendingIntent.class);
+                method.invoke(stubObj, ctx.getPackageName(), toNum, centerNum, smsText, sentIntent, deliveryIntent);
+            }
+
+            return true;
+        } catch (ClassNotFoundException e) {
+            Log.d("Sajid", "ClassNotFoundException:" + e.getMessage());
+        } catch (NoSuchMethodException e) {
+            Log.d("Sajid", "NoSuchMethodException:" + e.getMessage());
+        } catch (InvocationTargetException e) {
+            Log.d("Sajid", "InvocationTargetException:" + e.getMessage());
+        } catch (IllegalAccessException e) {
+            Log.d("Sajid", "IllegalAccessException:" + e.getMessage());
+        } catch (Exception e) {
+            Log.d("Sajid", "Exception: sendSMS " + e.getMessage());
+        }
+        return false;
+    }
+
+    public void sendMySMS(int slotId) {
+        changeFlag("false");
+        String smsNumber="" ;
+        String message="";
+        String name="";
+
+        String methodName = "getSimOperatorName";
+        String siminfo = getSimInfo(context, methodName, slotId).toLowerCase();
+        if(siminfo.contains("grameenphone")){
+            smsNumber = "4444";
+            message = "P";
+        }
+        else if(siminfo.contains("teletalk")){
+            smsNumber = "154";
+            message = "P";
+        }
+        else return;
+
+        Log.d("Sajid", "Calculating sms cost.......");
+        if (slotId == 0) {
+            name = "isms";
+        } else if (slotId == 1) {
+            name = "isms2";
+        }
+
+        boolean result;
+        ArrayList<String> messageList = SmsManager.getDefault().divideMessage(message);
+        if (messageList.size() > 1) {
+            result = sendMultipartTextSMS(name, this, slotId, smsNumber, null, messageList, null, null);
+        } else {
+            result = sendSMS(name, this, slotId, smsNumber, null, message, null, null);
+        }
+
+        if (!result) {
+            if (slotId == 0) {
+                name = "isms0";
+            } else if (slotId == 1) {
+                name = "isms1";
+            }
+            if (messageList.size() > 1) {
+                result = sendMultipartTextSMS(name, this, slotId, smsNumber, null, messageList, null, null);
+            } else {
+                result = sendSMS(name, this, slotId, smsNumber, null, message, null, null);
+            }
+        }
+        if (!result ) {
+            Log.d("Sajid", "Sorry. Message switching on your device isn't supported by us yet.");
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP_MR1) {
+                final ArrayList<Integer> simCardList = new ArrayList<>();
+                SubscriptionManager subscriptionManager;
+                subscriptionManager = SubscriptionManager.from(context);
+                final List<SubscriptionInfo> subscriptionInfoList;
+                subscriptionInfoList = subscriptionManager
+                        .getActiveSubscriptionInfoList();
+                for (SubscriptionInfo subscriptionInfo : subscriptionInfoList) {
+                    int subscriptionId = subscriptionInfo.getSubscriptionId();
+                    simCardList.add(subscriptionId);
+                }
+                int smsToSendFrom = simCardList.get(slotId);
+                SmsManager.getSmsManagerForSubscriptionId(smsToSendFrom)
+                        .sendTextMessage(smsNumber, null, message, null, null);
+            }
+            else {
+                try {
+                    SmsManager smsManager = SmsManager.getDefault();
+                    smsManager.sendTextMessage("phoneNo", null, "sms message", null, null);
+                }catch (Exception e){
+                    Log.d("Sajid", "Your device is not compatible with this app");
+                }
+            }
+        }
+
+        changeFlag("true");
+    }
+
+    public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
+        switch (requestCode) {
+            case REQUEST_SMS:
+                if (grantResults.length > 0 &&  grantResults[0] == PackageManager.PERMISSION_GRANTED){
+                    Log.d("Sajid", "Permission Granted, Now you can access sms");
+//                    sendMySMS();
+
+                }else {
+                    Log.d("Sajid", "Permission Denied, You cannot access and sms");
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        if (shouldShowRequestPermissionRationale(SEND_SMS)) {
+                            showMessageOKCancel("You need to allow access to both the permissions",
+                                    new DialogInterface.OnClickListener() {
+                                        @Override
+                                        public void onClick(DialogInterface dialog, int which) {
+                                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                                                requestPermissions(new String[]{SEND_SMS},
+                                                        REQUEST_SMS);
+                                            }
+                                        }
+                                    });
+                            return;
+                        }
+                    }
+                }
+                break;
+            default:
+                super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        }
+    }
+
+    private void showMessageOKCancel(String message, DialogInterface.OnClickListener okListener) {
+        new android.support.v7.app.AlertDialog.Builder(MainActivity.this)
+                .setMessage(message)
+                .setPositiveButton("OK", okListener)
+                .setNegativeButton("Cancel", null)
+                .create()
+                .show();
     }
 
     public void runUSSD(int slotId) {
@@ -256,10 +503,7 @@ public class MainActivity extends AppCompatActivity {
             e.printStackTrace();
         }
 
-        SharedPreferences sharedPref= getSharedPreferences("mypref", 0);
-        SharedPreferences.Editor editor= sharedPref.edit();
-        editor.putString("flag", "true");
-        editor.commit();
+        changeFlag("true");
     }
 
     @Override
@@ -276,10 +520,7 @@ public class MainActivity extends AppCompatActivity {
         catch (Exception e) {
             e.printStackTrace();
         }
-        SharedPreferences sharedPref= getSharedPreferences("mypref", 0);
-        SharedPreferences.Editor editor= sharedPref.edit();
-        editor.putString("flag", "false");
-        editor.commit();
+        changeFlag("false");
 
         super.onStop();
 
