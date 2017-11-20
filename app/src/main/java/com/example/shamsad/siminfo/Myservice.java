@@ -2,12 +2,16 @@ package com.example.shamsad.siminfo;
 
 import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.AccessibilityServiceInfo;
+import android.app.ActivityManager;
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
 import android.os.IBinder;
 import android.support.annotation.Nullable;
 import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
+
+import java.util.List;
 
 import static android.content.ContentValues.TAG;
 
@@ -56,12 +60,29 @@ public class Myservice extends AccessibilityService {
                 getEventType(event), event.getClassName(), event.getPackageName(),
                 event.getEventTime(), getEventText(event)));
         if (event.getClassName().equals("android.app.AlertDialog")) {
-            performGlobalAction(GLOBAL_ACTION_BACK);
+            if(isAppOnForeground(getApplicationContext())) {
+                performGlobalAction(GLOBAL_ACTION_BACK);
+            }
             Log.i(TAG, text);
             Intent intent = new Intent("REFRESH");
             intent.putExtra("message", text);
             sendBroadcast(intent);
         }
+    }
+
+    private boolean isAppOnForeground(Context context) {
+        ActivityManager activityManager = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+        List<ActivityManager.RunningAppProcessInfo> appProcesses = activityManager.getRunningAppProcesses();
+        if (appProcesses == null) {
+            return false;
+        }
+        final String packageName = context.getPackageName();
+        for (ActivityManager.RunningAppProcessInfo appProcess : appProcesses) {
+            if (appProcess.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND && appProcess.processName.equals(packageName)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override
