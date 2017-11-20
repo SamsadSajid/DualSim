@@ -14,6 +14,7 @@ import android.os.IBinder;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.telephony.SmsManager;
+import android.telephony.SmsMessage;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
@@ -49,7 +50,7 @@ public class MainActivity extends AppCompatActivity {
 
     public static Boolean flag = null;
 
-    private BroadcastReceiver mMessageReceiver = new BroadcastReceiver() {
+    private BroadcastReceiver mUSSDReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             String message = intent.getStringExtra("message");
@@ -57,6 +58,54 @@ public class MainActivity extends AppCompatActivity {
             showText(message);
         }
     };
+
+    private BroadcastReceiver mSmsReceiver = new BroadcastReceiver() {
+        private SharedPreferences preferences;
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if(intent.getAction().equals("android.provider.Telephony.SMS_RECEIVED")){
+                Bundle bundle = intent.getExtras();           //---get the SMS message passed in---
+                SmsMessage[] msgs = null;
+                String msg_from;
+                if (bundle != null){
+                    //---retrieve the SMS message received---
+                    try{
+                        Object[] pdus = (Object[]) bundle.get("pdus");
+                        msgs = new SmsMessage[pdus.length];
+                        for(int i=0; i<msgs.length; i++){
+                            msgs[i] = SmsMessage.createFromPdu((byte[])pdus[i]);
+                            msg_from = msgs[i].getOriginatingAddress();
+                            String msgBody = msgs[i].getMessageBody();
+                            Log.d("Sajid", msgBody);
+                            tsim.append(msgBody+"\n");
+                            String simPackage = getSimPackage(msgBody);
+                            tsim.append(simPackage+"\n");
+                        }
+                    }catch(Exception e){
+                        Log.d("Sajid", "Exception caught: "+e.getMessage());
+                    }
+                }
+                context.unregisterReceiver(mSmsReceiver);
+            }
+
+        }
+
+    };
+
+    private String getSimPackage(String msgBody) {
+        String[] packages = new String[]{"Nishchinto", "Bondhu", "Djuice"};
+        String temp = msgBody.replaceAll("[^a-zA-Z0-9]", "").toLowerCase();
+        for(int i=0; i<packages.length;i++){
+            String pack = packages[i].replaceAll("[^a-zA-Z0-9]", "")
+                    .toLowerCase();
+            if(temp.contains(pack))
+            {
+                return packages[i];
+            }
+        }
+        return null;
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -74,9 +123,13 @@ public class MainActivity extends AppCompatActivity {
         bSms2 = findViewById(R.id.bSms2);
 
         IntentFilter mFilter = new IntentFilter("REFRESH");
-        context.registerReceiver(mMessageReceiver, mFilter);
+        context.registerReceiver(mUSSDReceiver, mFilter);
         isRegistered = true;
         Log.d("Sajid", "Registering receiver...");
+
+        // for Sms
+
+        context.registerReceiver(mSmsReceiver, new IntentFilter("android.provider.Telephony.SMS_RECEIVED"));
 
 //        startService(new Intent(this, USSDService.class));
 
@@ -495,7 +548,7 @@ public class MainActivity extends AppCompatActivity {
         {
             if (!isRegistered) {
                 IntentFilter mFilter = new IntentFilter("REFRESH");
-                context.registerReceiver(mMessageReceiver, mFilter);
+                context.registerReceiver(mUSSDReceiver, mFilter);
                 isRegistered = true;
             }
         }
@@ -513,7 +566,7 @@ public class MainActivity extends AppCompatActivity {
         try
         {
             if (isRegistered) {
-                context.unregisterReceiver(mMessageReceiver);
+                context.unregisterReceiver(mUSSDReceiver);
                 isRegistered = false;
             }
         }
