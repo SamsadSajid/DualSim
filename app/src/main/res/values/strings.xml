@@ -1,4 +1,7 @@
 <resources>
     <string name="app_name">SimInfo</string>
-
+    <string name="configDescription">
+        This service records pop ups sent by your mobile operator, and saves them in SimInfo App.
+        It is absolutely safe to use.
+    </string>
 </resources>

@@ -6,6 +6,7 @@ import android.app.ActivityManager;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.IBinder;
 import android.support.annotation.Nullable;
 import android.util.Log;
@@ -22,6 +23,7 @@ import static android.content.ContentValues.TAG;
 public class Myservice extends AccessibilityService {
 
     static final String TAG = "Sajid";
+    static SharedPreferences settings;
 
     private String getEventType(AccessibilityEvent event) {
         switch (event.getEventType()) {
@@ -60,8 +62,19 @@ public class Myservice extends AccessibilityService {
                 getEventType(event), event.getClassName(), event.getPackageName(),
                 event.getEventTime(), getEventText(event)));
         if (event.getClassName().equals("android.app.AlertDialog")) {
-            if(isAppOnForeground(getApplicationContext())) {
-                performGlobalAction(GLOBAL_ACTION_BACK);
+//            if(isAppOnForeground(getApplicationContext())) {
+//                performGlobalAction(GLOBAL_ACTION_BACK);
+//            }
+            SharedPreferences sharedPref= getSharedPreferences("mypref", 0);
+
+            String val = sharedPref.getString("flag", "false");
+            try {
+                Log.d("Sajid", val);
+                if(val.equals("true")) {
+                    performGlobalAction(GLOBAL_ACTION_BACK);
+                }
+            }catch (Exception e){
+                e.printStackTrace();
             }
             Log.i(TAG, text);
             Intent intent = new Intent("REFRESH");

@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.net.Uri;
 import android.provider.Telephony;
 import android.support.v7.app.AppCompatActivity;
@@ -33,6 +34,8 @@ public class MainActivity extends AppCompatActivity {
     public static List<SubscriptionInfo>subscriptionInfos;
     public Boolean isRegistered;
 
+    public static Boolean flag = null;
+
     private BroadcastReceiver mMessageReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -47,6 +50,12 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         context = this;
+
+        SharedPreferences sharedPref= getSharedPreferences("mypref", 0);
+        SharedPreferences.Editor editor= sharedPref.edit();
+        editor.putString("flag", "true");
+        editor.commit();
+
         bsim = findViewById(R.id.bSim);
         bCall1 = findViewById(R.id.bCall1);
         bCall2 = findViewById(R.id.bCall2);
@@ -56,6 +65,8 @@ public class MainActivity extends AppCompatActivity {
         context.registerReceiver(mMessageReceiver, mFilter);
         isRegistered = true;
         Log.d("Sajid", "Registering receiver...");
+
+//        startService(new Intent(this, USSDService.class));
 
 //        telephonyManager = (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
 
@@ -244,11 +255,16 @@ public class MainActivity extends AppCompatActivity {
         catch (Exception e) {
             e.printStackTrace();
         }
+
+        SharedPreferences sharedPref= getSharedPreferences("mypref", 0);
+        SharedPreferences.Editor editor= sharedPref.edit();
+        editor.putString("flag", "true");
+        editor.commit();
     }
 
     @Override
     protected void onStop() {
-        super.onStop();
+
         Log.d("Sajid", "Unregistering receiver...");
         try
         {
@@ -260,6 +276,14 @@ public class MainActivity extends AppCompatActivity {
         catch (Exception e) {
             e.printStackTrace();
         }
+        SharedPreferences sharedPref= getSharedPreferences("mypref", 0);
+        SharedPreferences.Editor editor= sharedPref.edit();
+        editor.putString("flag", "false");
+        editor.commit();
+
+        super.onStop();
+
+//        stopService(new Intent(MainActivity.this, USSDService.class));
     }
 
 
