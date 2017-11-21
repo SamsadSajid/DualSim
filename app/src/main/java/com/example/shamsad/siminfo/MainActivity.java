@@ -27,6 +27,8 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static android.Manifest.permission.SEND_SMS;
 
@@ -56,8 +58,15 @@ public class MainActivity extends AppCompatActivity {
             String message = intent.getStringExtra("message");
             Log.d("Sajid", "USSD msg: "+message);
             showText(message);
+            String _balance = getBalance(message);
+            tsim.append("Your account balance is "+_balance+"\n");
+            Log.d("Sajid", "Your account balance is "+_balance);
+            String _validityOfAccount = getValidityOfAccount(message);
+            tsim.append("Your account validity is till "+_validityOfAccount+"\n");
+            Log.d("Sajid", "Your account validity is till "+_validityOfAccount);
         }
     };
+
 
     private BroadcastReceiver mSmsReceiver = new BroadcastReceiver() {
         private SharedPreferences preferences;
@@ -92,6 +101,42 @@ public class MainActivity extends AppCompatActivity {
         }
 
     };
+
+    private String getValidityOfAccount(String message) {
+        String regex1 = "(\\d{2}/\\d{2}/\\d{4})";
+        String regex2 = "(\\d{2}-\\d{2}-\\d{4})";
+        String regex3 = "(\\d{2}-\\d{2}-\\d{4}   \\d{2}:\\d{2}:d{2})";
+        Pattern pattern1 = Pattern.compile(regex1);
+        Pattern pattern2 = Pattern.compile(regex2);
+        Pattern pattern3 = Pattern.compile(regex3);
+        Matcher matcher1 = pattern1.matcher(message);
+        Matcher matcher2 = pattern2.matcher(message);
+        Matcher matcher3 = pattern3.matcher(message);
+        String result="";
+        if (matcher1.find()) {
+            result = matcher1.group(1);
+        }
+        else if (matcher2.find()) {
+            result = matcher2.group(1);
+        }
+        else if (matcher3.find()) {
+            result = matcher3.group(1);
+        }
+        return result;
+    }
+
+    private String getBalance(String message) {
+        String[] s = message.split(" ");
+        Pattern p = Pattern.compile("(\\d)+\\.(\\d)+");
+        double d=0;
+        for(int i = 0; i< s.length; i++)
+        {
+            Matcher m = p.matcher(s[i]);
+            if(m.find())
+                d = Double.parseDouble(m.group());
+        }
+        return String.valueOf(d);
+    }
 
     private String getSimPackage(String msgBody) {
         String[] packages = new String[]{"Nishchinto", "Bondhu", "Djuice"};
